@@ -45,9 +45,9 @@ cd ..../TOUGH3
 #メッシュ、浸透率構造の作成
 python3 makeGridAmeshVoro.py testdata/input.ini
 ```
-作成されるファイル
 
-|||
+
+|作成されるファイル|説明|
 |-|-|
 |input.ini|testdata/input.iniのコピー|
 |testdata/grid.geo|メッシュ定義ファイル(パスはinput.iniの[mesh]mulgridFileFpに指定されたもの)|
@@ -62,9 +62,7 @@ python3 makeGridAmeshVoro.py testdata/input.ini
 python3 tough3exec_ws.py testdata/input.ini
 ```
 
-作成されるファイル
-
-|||
+|作成されるファイル|説明|
 |-|-|
 |testdata/input/1_reference_case/t2data.dat|TOUGH3のインプットファイル|
 |testdata/input/1_reference_case/INCON|TOUGH3の初期条件の設定ファイル|
