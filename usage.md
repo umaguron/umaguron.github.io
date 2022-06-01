@@ -33,12 +33,12 @@ input.ini の configini= に、setting.ini のパスを設定することで両�
 実行方法
 
 ```
-# 以下、すべてのプログラムはプロジェクトのrootで実行すること
+#以下、すべてのプログラムはプロジェクトのrootで実行すること
 cd ..../TOUGH3
 ```
 
 ```
-# メッシュ、浸透率構造の作成
+#メッシュ、浸透率構造の作成
 python3 makeGridAmeshVoro.py testdata/input.ini
 ```
 作成されるファイル
@@ -52,7 +52,7 @@ python3 makeGridAmeshVoro.py testdata/input.ini
 |resistivity_slice-lineXX.pdf|比抵抗構造の断面(index=XX - input.iniの[plot] profile_lines_listで指定する)|
 |topo.pdf|作成されたメッシュから書いた地形図|
 ```
-# TOUGH3 インプットファイルの作成
+#TOUGH3 インプットファイルの作成
 python3 tough3exec_ws.py testdata/input.ini
 ```
 
@@ -66,14 +66,14 @@ python3 tough3exec_ws.py testdata/input.ini
 ### 本体の実行
 
 ```
-# 実行dirに移動
+#実行dirに移動
 cd testdata/1_reference_case
 
-# 以下は実行環境による(faradayの場合)
+#以下は実行環境による(faradayの場合)
 module purge
 export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH
 
-# TOUGH3本体実行 
+#TOUGH3本体実行 
 mpiexec -n 8 (tough3-eco2n_v2のフルパス) t2data.dat (outputファイル名)
 ``` 
 
