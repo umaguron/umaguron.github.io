@@ -22,7 +22,7 @@ testdata/にテスト用データがおいてある。
 
 シミュレーションの実行ディレクトリ(すべてのinput/outputが書き出される場所)は設定ファイル(input.ini)の場所によらず以下になる。
     
-```.../TOUGH3/(setting.iniのTOUGH_INPUT_DIR)/(input.iniのproblemName)```
+``` .../TOUGH3/(setting.iniのTOUGH_INPUT_DIR)/(input.iniのproblemName) ```
 
 input.ini の configini= に、setting.ini のパスを設定することで両者は紐付けられる。
 
