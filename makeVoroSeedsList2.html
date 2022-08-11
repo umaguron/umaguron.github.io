@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-2.12.1.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        let TESTER;
+        let layout = {
+            autoexpand: true,
+            autosize: true,
+            height: 500,
+            // width: 800,
+            title: "title",
+            margin: {
+                l: 50,
+                r: 50,
+                b: 50,
+                t: 0,
+            },
+            xaxis: {title: "Easting [m]"},
+            yaxis: {
+                title: "Northing [m]",
+                scaleanchor: "x",
+            }
+            
+        };
+        let config = {
+            scrollZoom: true,
+        }
+
+        let easting;
+        let northing;
+        // circular
+        let CENTER;
+        let INTBL;
+        let radius;
+        let fact1;
+        let nLoop1;
+        let fact2;
+        let nLoop2;
+        // rectlinear
+        let CENTERRECT;
+        let coreRangeX;
+        let coreRangeY;
+        let nElemX;
+        let nElemY;
+        let nAddX1;
+        let nAddY1;
+        let rectFactX1;
+        let rectFactY1;
+        let nAddX2;
+        let nAddY2;
+        let rectFactX2;
+        let rectFactY2;
+        /** SEED EDIT **/
+        let seedSELECTED = [];
+        let seedRemovedHistory=[];
+        const TOLER=0.1; // [m]
+
+        /** MAIN **/
+        // update plot
+        function plotly_plot() {
+
+            // plotly
+            let trace1 = {
+                x: easting,
+                y: northing,
+                mode: 'markers',
+                type: 'scatter',
+            };
+            Plotly.newPlot( TESTER, [trace1],  layout , config);
+            $('#nseeds').html("<h4>Number of seeds:"+easting.length+"</h4>");        
+            click_event_standby();
+        };
+
+        // button "replot"
+        function plotSeeds(){
+            if ($('#type').val()=='Circular'){
+                plotSeedsCircular();
+            } else if ($('#type').val()=='Rectilinear'){
+                plotSeedsRectilinear();
+            }
+        };
+
+        // called by plotSeeds
+        function plotSeedsRectilinear(){
+            
+            CENTERRECT = [Number($('#CENTERRECTx').val()),Number($('#CENTERRECTy').val())];
+            coreRangeX = Number($('#coreRangeX').val());
+            coreRangeY = Number($('#coreRangeY').val());
+            nElemX = Number($('#nElemX').val());
+            nElemY = Number($('#nElemY').val());
+            nAddX1 = Number($('#nAddX1').val());
+            nAddY1 = Number($('#nAddY1').val());
+            rectFactX1 = Number($('#rectFactX1').val());
+            rectFactY1 = Number($('#rectFactY1').val());
+            nAddX2 = Number($('#nAddX2').val());
+            nAddY2 = Number($('#nAddY2').val());
+            rectFactX2 = Number($('#rectFactX2').val());
+            rectFactY2 = Number($('#rectFactY2').val());
+            
+            easting = [];
+            northing = [];
+            let intbly = coreRangeY/(nElemY-1)
+            let intblx = coreRangeX/(nElemX-1)
+            let spacing_x = [];
+            let spacing_y = [];
+            let inner_off_x = rectFactX1==1 ? intblx*rectFactX1*nAddX1 : intblx*rectFactX1*(1-rectFactX1**nAddX1)/(1-rectFactX1)
+            let inner_off_y = rectFactY1==1 ? intbly*rectFactY1*nAddY1 : intbly*rectFactY1*(1-rectFactY1**nAddY1)/(1-rectFactY1)
+            let outer_off_x = rectFactX2==1 ? intblx*rectFactX1**nAddX1*rectFactX2*nAddX2 : intblx*rectFactX1**nAddX1*rectFactX2*(1-rectFactX2**nAddX2)/(1-rectFactX2);
+            let outer_off_y = rectFactY2==1 ? intbly*rectFactY1**nAddY1*rectFactY2*nAddY2 : intbly*rectFactY1**nAddY1*rectFactY2*(1-rectFactY2**nAddY2)/(1-rectFactY2);
+            let origin_x = CENTERRECT[0]-inner_off_x-outer_off_x-coreRangeX/2;
+            let origin_y = CENTERRECT[1]-inner_off_y-outer_off_y-coreRangeY/2;
+
+            for (let i=nAddX2; i>0; i--){
+                spacing_x.push(intblx*rectFactX1**nAddX1*rectFactX2**i);
+            };
+            for (let i=nAddY2; i>0; i--){
+                spacing_y.push(intbly*rectFactY1**nAddY1*rectFactY2**i);
+            };
+            for (let i=nAddX1; i>0; i--){
+                spacing_x.push(intblx*rectFactX1**i);
+            };
+            for (let i=nAddY1; i>0; i--){
+                spacing_y.push(intbly*rectFactY1**i);
+            };
+            for (let i=1; i<nElemX; i++){
+                spacing_x.push(intblx);
+            };
+            for (let i=1; i<nElemY; i++){
+                spacing_y.push(intbly);
+            };
+            for (let i=0; i<nAddX1; i++){
+                spacing_x.push(intblx*rectFactX1**(i+1));
+            };
+            for (let i=0; i<nAddY1; i++){
+                spacing_y.push(intbly*rectFactY1**(i+1));
+            };
+            for (let i=0; i<nAddX2; i++){
+                spacing_x.push(intblx*rectFactX1**nAddX1*rectFactX2**(i+1));
+            };
+            for (let i=0; i<nAddY2; i++){
+                spacing_y.push(intbly*rectFactY1**nAddY1*rectFactY2**(i+1));
+            };
+
+            // add dummy element
+            spacing_x.push(0);
+            spacing_y.push(0);
+
+            let x = origin_x;
+            for (let dx of spacing_x){
+                let y = origin_y;
+                for (let dy of spacing_y){
+                    easting.push(x);
+                    northing.push(y);
+                    y += dy;
+                };
+                x += dx;
+            };
+            // plot
+            plotly_plot();
+        };
+        
+        // called by plotSeeds()
+        function plotSeedsCircular(){
+
+            CENTER = [Number($('#center_x').val()),Number($('#center_y').val())]
+            INTBL = Number($('#INTBL').val())
+            radius = Number($('#radius').val())
+            fact1 = Number($('#fact1').val())
+            nLoop1 = Number($('#nLoop1').val())
+            fact2 = Number($('#fact2').val())
+            nLoop2 = Number($('#nLoop2').val())
+            
+            easting = [];
+            northing = [];
+
+            /** core zone **/
+            for (let i = -1 * Math.floor(radius/INTBL); i <= Math.floor(radius/INTBL); i++){
+                let x = i * INTBL
+                let half_width = (radius**2-x**2)**0.5;
+                let residual_y = half_width - Math.floor(half_width/INTBL)*INTBL;
+                let expanding = residual_y > INTBL*2.7/4 ? 1 : 0;
+                for (let j = -1 * Math.floor(half_width/INTBL)-expanding; j <= Math.floor(half_width/INTBL)+expanding; j++){
+                    easting.push(x+CENTER[0]);
+                    northing.push(j*INTBL+CENTER[1]);
+                }
+            };
+            /** periphery **/
+            let r = radius;
+            let newIntbr = INTBL;
+            let n;
+            for (let i=1;i<=nLoop1;i++){
+                r = r + newIntbr;
+                let enshu = 2*Math.PI*r;
+                if (i==1){
+                    n = Math.floor(enshu/newIntbr);
+                } 
+                let intbrRad = 2*Math.PI / n;
+                for (let j=0; j<n; j++){
+                    easting.push(r * Math.sin(j*intbrRad) + CENTER[0]);
+                    northing.push(r * Math.cos(j*intbrRad) + CENTER[1]);
+                };
+                newIntbr = fact1*newIntbr
+            };
+            for (let i=nLoop1+1;i<=nLoop1+nLoop2;i++){
+                r = r + newIntbr;
+                let enshu = 2*Math.PI*r;
+                if (i==1){
+                    n = Math.floor(enshu/newIntbr);
+                } 
+                let intbrRad = 2*Math.PI / n;
+                for (let j=0; j<n; j++){
+                    easting.push(r * Math.sin(j*intbrRad) + CENTER[0]);
+                    northing.push(r * Math.cos(j*intbrRad) + CENTER[1]);
+                };
+                newIntbr = fact2*newIntbr
+            };
+
+            // plot
+            plotly_plot();
+        };
+
+        /** refinement of mesh **/
+        function refine(){
+            // number of section
+            let nSec = Number($('#nSec').val());
+
+            // edit arrays (easting, northing)
+            for (let i=1; i<=nSec; i++){  
+                /** subsection #{i}  **/
+                // info
+                let subCENTER = [Number($('#'+i+' .sub_center_x').val()),Number($('#'+i+' .sub_center_y').val())];
+                let subINTBL = Number($('#'+i+' .subINTBL').val());
+                let subRadius = Number($('#'+i+' .subRadius').val()); // radius of the area to create refined seeds zone
+                let subOverlap = Number($('#'+i+' .subOverlap').val());
+                let refType = $('#'+i+' .refType').val();
+                let innerR = subRadius - subOverlap; // radius of the area in which seeds are to be deleted
+                
+                if (refType=='circular'){
+                    if (!isNaN(subCENTER[0]) && !isNaN(subCENTER[1]) && subINTBL!=0 && subRadius!=0){
+                        // apply filter to the array to delete seeds located in the subsection 
+                        const easting_bf = easting;
+                        easting = easting.filter((east,i) => 
+                            (northing[i]-subCENTER[1])**2 + (east-subCENTER[0])**2 > innerR**2);
+                        northing = northing.filter((north,i) => 
+                            (north-subCENTER[1])**2 + (easting_bf[i]-subCENTER[0])**2 > innerR**2);
+                        // add refined seeds to core zone of subsection
+                        for (let i = -1 * Math.floor(subRadius/subINTBL); i <= Math.floor(subRadius/subINTBL); i++){
+                            let x = i * subINTBL
+                            let half_width = (subRadius**2-x**2)**0.5;
+                            let residual_y = half_width - Math.floor(half_width/subINTBL)*subINTBL;
+                            let expanding = residual_y > subINTBL*2.7/4 ? 1 : 0;
+                            // let expanding = 0;
+                            for (let j = -1 * Math.floor(half_width/subINTBL)-expanding; j <= Math.floor(half_width/subINTBL)+expanding; j++){
+                                easting.push(x+subCENTER[0]);
+                                northing.push(j*subINTBL+subCENTER[1]);
+                            };
+                        };
+                    };
+                } else if (refType=='square'){
+                    if (!isNaN(subCENTER[0]) && !isNaN(subCENTER[1]) && subINTBL!=0 && subRadius!=0){
+                        // apply filter to the array to delete seeds located in the subsection 
+                        const easting_bf = easting;
+                        easting = easting.filter((east,i) => 
+                            Math.abs(northing[i]-subCENTER[1])> innerR/2 || Math.abs(east-subCENTER[0]) > innerR/2);
+                        northing = northing.filter((north,i) => 
+                            Math.abs(north-subCENTER[1]) > innerR/2 || Math.abs(easting_bf[i]-subCENTER[0]) > innerR/2);
+                        // add refined seeds to core zone of subsection
+                        for (let i = -1 * Math.floor(subRadius/2/subINTBL); i <= Math.floor(subRadius/2/subINTBL); i++){
+                            let x = i * subINTBL
+                            for (let j = -1 * Math.floor(subRadius/2/subINTBL); j <= Math.floor(subRadius/2/subINTBL); j++){
+                                easting.push(x+subCENTER[0]);
+                                northing.push(j*subINTBL+subCENTER[1]);
+                            };
+                        };
+                    };
+
+                };
+            };
+
+            // plot
+            plotly_plot();
+        };
+         
+        // What to do after seed point is clicked is written here. 
+        // you must call this function after doing "Plotly.newPlot"
+        function click_event_standby(){
+            TESTER = document.getElementById('tester');
+            // plot area click event
+            TESTER.on('plotly_click', function(data){
+                var pts = '';
+                for(var i=0; i < data.points.length; i++){
+                    seedSELECTED = [data.points[i].x, data.points[i].y];
+                }
+                
+                // disable/enable btns
+                togleBtns();
+
+                // update seed info in "Selectd:" and "New seed:"
+                seedSelectedHtmlUpd();
+                
+                // blink selected seed coordinates
+                blinkElem('#seedSelected', 2);
+                
+                // show toast message
+                // $('#seedInfo').empty()
+                // $('#seedInfo').append("Seed selected ("+Number.parseFloat(seedSELECTED[0]).toFixed(2)+" ,"+Number.parseFloat(seedSELECTED[1]).toFixed(2)+")")
+                // $('#seedSelectedMsg').toast('show')
+            });
+        };
+
+        // update seed info in "Selectd:" and "New seed:"
+        function seedSelectedHtmlUpd(){
+            // update seed info in the "New seed:" text box
+            $('#seed_new_E').val(Number.parseFloat(seedSELECTED[0]).toFixed(2)) // %.2f
+            $('#seed_new_N').val(Number.parseFloat(seedSELECTED[1]).toFixed(2)) // %.2f
+            // update seed info in the "Selected:" section
+            $('#seedSelectedE').empty();
+            $('#seedSelectedN').empty();
+            $('#seedSelectedE').append(Number.parseFloat(seedSELECTED[0]).toFixed(2));
+            $('#seedSelectedN').append(Number.parseFloat(seedSELECTED[1]).toFixed(2));
+        };
+
+        // blink the passed element N times
+        function blinkElem(elem, N){
+            for (let i=0;i<N;i++){
+                $(elem).fadeOut(100);
+                $(elem).fadeIn(100);
+            };
+        };
+
+
+        /** SEED EDIT **/
+        function seedEditRemove(){
+            easting.forEach((east, i) => {
+                let north = northing[i];
+                if (seedSELECTED[0]-TOLER < east && east < seedSELECTED[0]+TOLER
+                && seedSELECTED[1]-TOLER < north && north < seedSELECTED[1]+TOLER){
+                    easting.splice(i,1); // 1要素削除
+                    northing.splice(i,1); // 1要素削除
+                };
+            });
+
+            //push to stack for restore
+            seedRemovedHistory.push(seedSELECTED)
+            seedSELECTED = []
+            
+            //plot
+            plotly_plot();
+            seedSelectedHtmlUpd();
+        };
+        function seedEditMove2E(sign=1){
+            let off = Number($('#move_step').val())*sign;
+            easting.forEach((east, i) => {
+                let north = northing[i];
+                if (seedSELECTED[0]-TOLER < east && east < seedSELECTED[0]+TOLER
+                && seedSELECTED[1]-TOLER < north && north < seedSELECTED[1]+TOLER){
+                    easting[i] = seedSELECTED[0] + off;
+                    seedSELECTED = [easting[i], seedSELECTED[1]];
+                };
+            });
+            seedSelectedHtmlUpd();
+            plotly_plot();
+        };
+        function seedEditMove2N(sign=1){
+            let off = Number($('#move_step').val())*sign;
+            easting.forEach((east, i) => {
+                let north = northing[i];
+                if (seedSELECTED[0]-TOLER < east && east < seedSELECTED[0]+TOLER
+                && seedSELECTED[1]-TOLER < north && north < seedSELECTED[1]+TOLER){
+                    northing[i] = seedSELECTED[1] + off;
+                    seedSELECTED = [seedSELECTED[0], northing[i]]; 
+                };
+            });
+            seedSelectedHtmlUpd();
+            plotly_plot();
+        };
+        function seedEditAdd(){
+            $('#addSeedWarn').empty();
+            $('#addSeedWarn').show();
+            let isDuplicated = false;
+            if ($('#seed_new_E').val() && $('#seed_new_N').val()){
+                let seedNEW = [Number($('#seed_new_E').val()), Number($('#seed_new_N').val())]
+                // duplication check 
+                easting.forEach((east, i) => {
+                    let north = northing[i];
+                    if (seedNEW[0]-TOLER < east && east < seedNEW[0]+TOLER
+                            && seedNEW[1]-TOLER < north && north < seedNEW[1]+TOLER){
+                        isDuplicated = true;            
+                    };
+                });
+                
+                // if (isDuplicated){ // if duplicate seed found, nothing to do.
+                if (false){ // always accept since duplicated seeds are removed at outputing stage
+                    $('#addSeedWarn').append("duplicated");
+                }else{
+                    // add new seed
+                    seedSELECTED = seedNEW
+                    seedSelectedHtmlUpd();
+                    blinkElem('#seedSelected', 2);
+                    easting.push(seedSELECTED[0]);
+                    northing.push(seedSELECTED[1]);
+                    plotly_plot();
+                    $('#addSeedWarn').append("new seed added");
+                }
+            } else {
+                $('#addSeedWarn').append("invalid input");
+            };
+            blinkElem('#addSeedWarn',2);
+            $('#addSeedWarn').fadeOut(2000);
+        };
+        function seedEditRestore(){
+            let seedToRestore = seedRemovedHistory.pop();
+            easting.push(seedToRestore[0]);
+            northing.push(seedToRestore[1]);
+            seedSELECTED = seedToRestore;
+            seedSelectedHtmlUpd();
+            blinkElem('#seedSelected', 2);
+            plotly_plot();
+        };
+        
+        /** OUTPUT **/
+        function WriteToFile(){
+
+            // eliminate duplicated seeds
+            let arrDupChked = [];
+            easting.forEach((east, i) => {
+                if (arrDupChked.some(seed => 
+                        (seed['e']-TOLER<east && east<seed['e']+TOLER) && 
+                        (seed['n']-TOLER<northing[i] && northing[i]<seed['n']+TOLER))) {
+                    console.log("duplicated: "+east+", "+northing[i]);
+                } else {
+                    arrDupChked.push({'e':east, 'n':northing[i]});
+                };
+            });
+
+            // convert arrays to stringz1
+            let outStr = "x y \n";
+            arrDupChked.forEach((seed, i) => {
+                outStr += String(seed['n'])+" "+String(seed['e'])+"\n";
+            });
+
+            // output to file
+            let blob = new Blob([outStr],{type:"text/plan"});
+            let link = document.createElement('a');
+            let nSeeds = arrDupChked.length
+            link.href = URL.createObjectURL(blob);
+            if ($('#type').val()=='Circular'){
+                link.download = "N"+String(nSeeds)+"_itb"+String(INTBL)+"_r"+String(radius)+"_f1"+String(fact1)+"_nl1"+String(nLoop1)+"_f2"+String(fact2)+"_nl2"+String(nLoop2)+"_C"+String(CENTER[1])+"-"+String(CENTER[0])+'.txt';
+            } else if ($('#type').val()=='Rectilinear'){
+                link.download = "crx"+String(coreRangeX)+"_cry"+String(coreRangeY)+"_ncx"+String(nElemX)+"_ncy"+String(nElemY)+"_nax1"+String(nAddX1)+"_nay1"+String(nAddY1)+"_fx1"+String(rectFactX1)+"_fy1"+String(rectFactY1)+"_nax1"+String(nAddX2)+"_nay1"+String(nAddY2)+"_fx2"+String(rectFactX2)+"_fy2"+String(rectFactY2)+"_C"+String(CENTER[1])+"-"+String(CENTER[0])+'.txt';
+            }
+            link.click();
+        };
+
+
+        /** READY  **/
+        // ページ読み込み時に実行したい処理
+        $(document).ready( function(){
+            TESTER = document.getElementById('tester');
+            plotSeeds();
+            switch_type();
+            togleBtns();
+        });
+        
+        /** STANDBY **/
+        $(function () {
+            // drop down
+            $('#type').change(function(){
+                switch_type();
+                plotSeeds();
+            });
+            // togle restore btn disabled/enabled
+            $('.monitor4BtnDisable').click(function(){
+                togleBtns();
+            });
+        });
+
+        function togleBtns(){
+            if (seedRemovedHistory.length==0){
+                $('#restore').prop('disabled', true);
+            } else {
+                $('#restore').prop('disabled', false);
+            };
+            if (seedSELECTED.length==0){
+                $('#remove').prop('disabled', true);
+                $('#move2Ebtn').prop('disabled', true);
+                $('#move2Nbtn').prop('disabled', true);
+                $('#move2Wbtn').prop('disabled', true);
+                $('#move2Sbtn').prop('disabled', true);
+            } else {
+                $('#remove').prop('disabled', false);
+                $('#move2Ebtn').prop('disabled', false);
+                $('#move2Nbtn').prop('disabled', false);
+                $('#move2Wbtn').prop('disabled', false);
+                $('#move2Sbtn').prop('disabled', false);
+            };
+        };
+
+        function switch_type(){
+            if ($('#type').val()=='Circular'){
+                $('#rectilinear').hide('fast');
+                $('#circular').show('fast');
+            } else if ($('#type').val()=='Rectilinear'){
+                $('#rectilinear').show('fast');
+                $('#circular').hide('fast');
+            }
+        };
+
+        function addRefinementSection(){
+            id = Number($('#nSec').val())+1;
+            $('#nSec').val(id);
+            info = id > 1 ? '<p>is overwritten by:</p>' : '' 
+            $('#refinement_sec').append(
+                '<div id="'+id+'">\
+                    '+info+'\
+                    <h5>#'+id+'</h5>\
+                    <div class="row">\
+                        <div class="col-2">\
+                            <label >area type</label>\
+                            <select class="refType form-select btn btn-sm  btn-outline-success dropdown-toggle" >\
+                                <option value="square">square</option>\
+                                <option value="circular">circular</option>\
+                            </select>\
+                        </div>\
+                        <div class="col-2">\
+                            <div class="form-group">\
+                                <label>N-S center [m]</label>\
+                                <input type="number" value="0" step="100" placeholder="x"  class="sub_center_y form-control form-control-sm"> \
+                            </div>\
+                        </div>\
+                        <div class="col-2">\
+                            <div class="form-group">\
+                                <label>E-W center [m]</label>\
+                                <input type="number" value="0" step="100" placeholder="y"  class="sub_center_x form-control form-control-sm"> \
+                            </div>\
+                        </div>\
+                        <div class="col-2">\
+                            <div class="form-group">\
+                                <label>grid spacing [m]</label>\
+                                <input type="number" value="0" step="10" class="subINTBL form-control form-control-sm" >\
+                            </div>\
+                        </div>\
+                        <div class="col-2">\
+                            <div class="form-group">\
+                                <label>radius/edge length [m]</label>\
+                                <input type="number" value="0" step="100" class="subRadius form-control form-control-sm" >\
+                            </div>\
+                        </div>\
+                        <div class="col-2">\
+                            <div class="form-group">\
+                                <label>periphery overlap [m]</label>\
+                                <input type="number" value="0" step="10" class="subOverlap form-control form-control-sm" >\
+                            </div>\
+                        </div>\
+                    </div>\
+                </div>'
+            );
+        }
+
+    </script>
+</head>
+<body>
+    <div class="container">
+        <p>
+        Created by Plotly -  
+        <a href="https://bit.ly/1Or9igj">plotly.js documentation</a>
+        </p>
+        <div class="row">
+
+            <div class="col-8">
+                <div id="tester"></div>
+                <br>
+                <div id="nseeds" class="row align-items-center"></div>
+            </div>
+            
+            <div class="col-4">
+                <p>Click to select a seed point</p>
+                <h4>Selected: </h4>
+                <div id="seedSelected" class="row g-2">
+                    <div class="col-6">Easting (m)</div><div id="seedSelectedE" class="col-6"></div>
+                    <div class="col-6">Northing (m)</div><div id="seedSelectedN" class="col-6"></div>
+                </div>
+                <br>
+
+                <div class="row g-2">
+                    <div class="col"><button id="remove" class="btn btn-danger btn-sm col-12 monitor4BtnDisable" onclick="seedEditRemove()">remove</button></div>
+                    <div class="col"><button id="restore" class="btn btn-primary btn-sm col-12 monitor4BtnDisable" onclick="seedEditRestore()">restore removed</button></div>
+                </div>
+                <br>
+                <div class="row g-2">
+                    <!-- N -->
+                    <div class="col-sm-4">Move by (m):</div>
+                    <div class="col-sm-4">
+                        <input type="button" class="btn btn-outline-primary btn-sm col-12" id="move2Nbtn" onclick="seedEditMove2N(sign=1)" value="N">
+                    </div>
+                    <div class="col-sm-4"></div>
+                    <!-- W/step/E -->
+                    <div class="col-sm-4"><input type="button" class="btn btn-outline-primary btn-sm col-12" id="move2Wbtn" onclick="seedEditMove2E(sign=-1)" value="W <"></div>
+                    <div class="col-sm-4"><input class="form-control form-control-sm" type="number" id="move_step" step="5" value="10"></div>
+                    <div class="col-sm-4"><input type="button" class="btn btn-outline-primary btn-sm col-12" id="move2Ebtn" onclick="seedEditMove2E(sign=1)" value="> E"></div>
+                    <!-- S -->
+                    <div class="col-sm-4"></div>
+                    <div class="col-sm-4">
+                        <input type="button" class="btn btn-outline-primary btn-sm col-12" id="move2Sbtn" onclick="seedEditMove2N(sign=-1)" value="S">
+                    </div>
+                    <div class="col-sm-4"></div>
+                </div>
+                <br>
+                <h4>New seed: </h4>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label>easting (m)</label>
+                        <input type="number" step="5" class="form-control form-control-sm" id="seed_new_E">
+                    </div>
+                    <div class="col-6">
+                        <label>northing (m)</label>
+                        <input type="number" step="5" class="form-control form-control-sm" id="seed_new_N">
+                    </div>
+                    <div class="col-12">
+                        <input type="button" class="btn btn-outline-primary btn-sm col-12" id="addSeed" onclick="seedEditAdd()" value="add">
+                    </div>
+                    <div class="col-12">
+                        <div class="col-12" id="addSeedWarn" style="color: red;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        
+        <div class="row">
+            <div class="col">
+                <select class="form-select btn btn-outline-primary dropdown-toggle" id="type">
+                    <option>Circular</option>
+                    <option>Rectilinear</option>
+                </select>
+            </div>
+            <div class="col">
+                <input type="button" class="btn btn-primary col-12" value="replot" onclick="plotSeeds()">
+            </div>
+            <div class="col">
+                <input type="button" class="btn btn-primary col-12" value="download" onclick="WriteToFile()">
+            </div>
+        </div>
+        <br>
+       
+        <div id="rectilinear">
+            <h4>Core zone</h4>
+            <div class="row">
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>N-S center [m]</label>
+                        <input type="text" value="0" placeholder="x" id="CENTERRECTy"  class="form-control"> 
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>E-W center [m]</label>
+                        <input type="text" value="0" placeholder="y" id="CENTERRECTx"  class="form-control"> 
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>N-S n-element</label>
+                        <input type="text" value="11" id="nElemY" class="form-control" >
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>E-W n-element</label>
+                        <input type="text" value="11" id="nElemX" class="form-control" >
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>N-S width [m]</label>
+                        <input type="text" value="1000" id="coreRangeY" class="form-control" >
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>E-W width [m]</label>
+                        <input type="text" value="1000" id="coreRangeX" class="form-control" >
+                    </div>
+                </div>
+            </div>
+            <br>
+            <h4>Periphery</h4>
+            <div class="row">
+                <div class="col">
+                    <h5>inner</h5>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>enlargement factor (N-S)</label>
+                        <input type="text" value="1.2" id="rectFactY1" class="form-control">
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>n-additional row (N-S)</label>
+                        <input type="text" value="10" id="nAddY1" class="form-control">
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>enlargement factor (E-W)</label>
+                        <input type="text" value="1.2" id="rectFactX1" class="form-control">
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>n-additional row (E-W)</label>
+                        <input type="text" value="10" id="nAddX1" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <h5>outer</h5>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>enlargement factor (N-S)</label>
+                        <input type="text" value="1" id="rectFactY2" class="form-control">
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>n-additional row (N-S)</label>
+                        <input type="text" value="0" id="nAddY2" class="form-control">
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>enlargement factor (E-W)</label>
+                        <input type="text" value="1" id="rectFactX2" class="form-control">
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group">
+                        <label>n-additional row (E-W)</label>
+                        <input type="text" value="0" id="nAddX2" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="circular">
+            <h4>Core zone</h4>
+            <div class="row">
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>N-S center [m]</label>
+                        <input type="text" value="0" placeholder="x" id="center_y"  class="form-control"> 
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>E-W center [m]</label>
+                        <input type="text" value="0" placeholder="y" id="center_x"  class="form-control"> 
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>grid spacing [m]</label>
+                        <input type="text" value="100" id="INTBL" class="form-control" >
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>radius [m]</label>
+                        <input type="text" value="1000" id="radius" class="form-control" >
+                    </div>
+                </div>
+            </div>
+            <br>
+            <h4>Periphery</h4>
+            <div class="row">
+                <div class="col">
+                    <h5>Loop (inner)</h5>
+                </div>
+                <div class="col">
+                    <h5>Loop (outer)</h5>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>factor</label>
+                        <input type="text" value="1.1" id="fact1" class="form-control">
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>number of loop</label>
+                        <input type="text" value="3" id="nLoop1" class="form-control">
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>factor </label>
+                        <input type="text" value="1.2" id="fact2" class="form-control">
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="form-group">
+                        <label>number of loop</label>
+                        <input type="text" value="3" id="nLoop2" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <br>
+        <br>
+        <div class="row">
+            <div class="col-4">
+                <h5>Local refinement</h5>
+            </div>
+            <div class="col-4">
+                <button id="add_refinement" class="btn btn-sm btn-outline-success col-12" onclick="addRefinementSection()">add</button>
+            </div>
+            <div class="col-4">
+                <button id="refine" class="btn btn-sm btn-primary col-12" onclick="refine()">refine</button>
+            </div>
+        </div>
+        <input type="hidden" id="nSec" value="0">
+        <div id="refinement_sec">
+            <!-- refinement sections are added here -->
+        </div>
+        <br>
+        
+        <br>
+        <form action="" method="post">
+            <input type="hidden" name="east_seeds" id="east_seeds">
+            <input type="hidden" name="north_seeds" id="north_seeds">
+            <!-- <input type="submit" value="send"> -->
+        </form>
+    </div>
+</body>
+</html>
